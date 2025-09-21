@@ -63,7 +63,8 @@ class KafkaRetry extends Redis {
           const ele = existingRetries[index];
           if (ele.options.retryCount <= ele.options.maxRetry) {
             //Delete message id after get so that other consumers does not consume the same message from redis
-            if (this.getdel(ele.value.msgId)) {
+            const msgIdExists = await this.getdel(ele.value.msgId);
+            if (msgIdExists) {
               //Update the message id for next message
               ele.value.msgId = randomUUID();
               await producer.produce(
