@@ -8,9 +8,9 @@ class KafkaProducer {
     const kafka = new Kafka({
       clientId: 'my-app',
       brokers: ['localhost:9092', 'localhost:9091'],
-    })
+    });
     
-    this.producer = kafka.producer({})
+    this.producer = kafka.producer({});
   }
 
   async connect() {
@@ -23,7 +23,7 @@ class KafkaProducer {
       messages: [
         { key: key, value: value, headers: headers },
       ],
-    })
+    });
   }
 
 }

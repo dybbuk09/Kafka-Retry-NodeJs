@@ -1,5 +1,6 @@
 const moment = require('moment');
 const { Redis } = require('ioredis');
+const { randomUUID } = require('crypto');
 
 class KafkaRetry extends Redis {
   static keyFormat = 'YYYYMMDD-HHmm';
@@ -26,10 +27,11 @@ class KafkaRetry extends Redis {
     const datetimeInstance = moment().add(expireTime, 'minutes');
     const key = datetimeInstance.format(KafkaRetry.keyFormat);
     let existingRetries = JSON.parse(await this.get(key) || '[]');
+    const value = JSON.parse(eventValue.value);
     const data = {
       topic,
       event: eventValue.event,
-      value: JSON.parse(eventValue.value),
+      value: value,
       options: {
         ...options,
         retryCount: (parseInt(options.retryCount) + 1).toString(),
@@ -39,6 +41,8 @@ class KafkaRetry extends Redis {
     existingRetries.push(data);
     await this.set(key, JSON.stringify(existingRetries))
     await this.expire(key, 60 * expireTime);
+    //Set a unique message id with no expiry
+    await this.set(value.msgId, "true");
   };
 
   /**
@@ -58,12 +62,17 @@ class KafkaRetry extends Redis {
         for (let index = 0; index < existingRetries.length; index++) {
           const ele = existingRetries[index];
           if (ele.options.retryCount <= ele.options.maxRetry) {
-            await producer.produce(
-              ele.topic,
-              ele.event,
-              JSON.stringify(ele.value),
-              ele.options,
-            );
+            //Delete message id after get so that other consumers does not consume the same message from redis
+            if (this.getdel(ele.value.msgId)) {
+              //Update the message id for next message
+              ele.value.msgId = randomUUID();
+              await producer.produce(
+                ele.topic,
+                ele.event,
+                JSON.stringify(ele.value),
+                ele.options,
+              );
+            }
           } else {
             //On reaching the max retry limit push the ele to dead letter queue
             if (dlq) {
