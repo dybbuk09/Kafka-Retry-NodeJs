@@ -75,10 +75,13 @@ class KafkaRetry extends Redis {
               );
             }
           } else {
-            //On reaching the max retry limit push the ele to dead letter queue
+            //On reaching the max retry limit push the ele to dead letter queue and delete msgId
             if (dlq) {
               console.log(`Pushing the event to ${dlq} with event ${ele.event}`,);
-              await this.pushToDlq(dlq, ele);
+              await Promise.all([
+                this.del(ele.value.msgId),
+                this.pushToDlq(dlq, ele)
+              ])
             }
           }
         }
