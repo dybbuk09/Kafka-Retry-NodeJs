@@ -9,6 +9,7 @@ const init = async () => {
     await KafkaConsumer.connect();
     await KafkaConsumer.consumerFromTopic(TOPIC);
     await new KafkaRetry().queueListener(KafkaProducer, DEAD_LETTER_QUEUE);
+    //Add msgId to handle deduplication of messages while picking from the redis queue
     const examplePayload = JSON.stringify({ msgId: randomUUID(), success: false });
     await KafkaProducer.produce(TOPIC, EVENT_NAME, examplePayload);
 }
